@@ -6,6 +6,9 @@ import PhotoList from "@/components/PhotoList";
 import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Marker, MarkerImage } from "@/types";
+import { useUserLocation } from "@/contexts/UserLocationContext";
+import { calculateDistance } from "@/utils/geo";
+import * as Notifications from "expo-notifications";
 
 // --- Читаем регион из params, чтобы потом передать обратно
 type RegionParams = {
@@ -25,6 +28,9 @@ export default function MarkerScreen() {
 
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [images, setImages] = useState<MarkerImage[]>([]);
+
+  // Геолокация пользователя из контекста
+  const userLocation = useUserLocation();
 
   // Загрузка изображений маркера при открытии экрана
   useEffect(() => {
@@ -84,6 +90,18 @@ export default function MarkerScreen() {
     );
   };
 
+  // Кнопка для отправки тестового уведомления
+  const handleTestNotification = async () => {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: "Тестовое уведомление",
+        body: marker?.label ? `Проверка для точки: ${marker.label}` : "Это проверка уведомлений в GeoGallery!",
+      },
+      trigger: null, // отправить сразу
+    });
+  };
+
+  // Если маркер не найден (например, был удалён)
   if (!marker) {
     return (
       <View style={styles.center}>
@@ -93,6 +111,21 @@ export default function MarkerScreen() {
     );
   }
 
+  // --- Расчёт расстояния до точки ---
+  let distanceText = "";
+  if (userLocation && marker) {
+    const distance = calculateDistance(
+      userLocation.latitude,
+      userLocation.longitude,
+      marker.latitude,
+      marker.longitude
+    );
+    distanceText =
+      distance < 1000
+        ? `Расстояние: ${distance.toFixed(1)} м`
+        : `Расстояние: ${(distance / 1000).toFixed(2)} км`;
+  }
+
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
@@ -100,21 +133,25 @@ export default function MarkerScreen() {
         <Text style={styles.coords}>
           Широта: {marker.latitude.toFixed(6)}{"\n"}
           Долгота: {marker.longitude.toFixed(6)}
+          {distanceText ? `\n${distanceText}` : ""}
         </Text>
         <PhotoList
           photos={images}
           onDelete={photoId => handleDeletePhoto(photoId)}
           onPreview={setPreviewUri}
         />
+        {/* Кнопки действия */}
         <View style={styles.actionButtons}>
           <Button title="Добавить изображение" onPress={handleAddPhoto} />
           <View style={{ height: 8 }} />
           <Button title="Удалить точку" color="#d32f2f" onPress={handleDeleteMarker} />
+          <View style={{ height: 8 }} />
+          {/* Кнопка тестового уведомления */}
+          <Button title="Отправить тестовое уведомление" onPress={handleTestNotification} />
         </View>
       </ScrollView>
       <View style={{ height: 8 }} />
       <View style={{ paddingBottom: insets.bottom + 8, backgroundColor: "transparent" }}>
-        {/* --- При возврате к карте, тоже передаём сохранённый регион --- */}
         <Button
           title="Назад к карте"
           onPress={() =>

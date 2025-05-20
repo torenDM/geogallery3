@@ -5,8 +5,9 @@ import { useDatabase } from "@/contexts/DatabaseContext";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { getCurrentLocation, watchPosition } from "@/services/location";
 import { notificationManager } from "@/services/notifications";
-import { calculateDistance } from "@/utils/geo"; // функцию дадим ниже
+import { calculateDistance } from "@/utils/geo";
 import { PROXIMITY_THRESHOLD, UserLocation } from "@/types";
+import * as Notifications from "expo-notifications";
 
 const COLORS = ["#1976d2", "#388e3c", "#d32f2f", "#fbc02d", "#7b1fa2"];
 const DEFAULT_ANDROID_COLOR = "#1976d2";
@@ -16,6 +17,17 @@ const DEFAULT_REGION = {
   longitude: 56.187654,
   latitudeDelta: 0.01,
   longitudeDelta: 0.01,
+};
+
+
+const sendTestNotification = async () => {
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: "Тестовое уведомление",
+      body: "Это проверка уведомлений в GeoGallery!",
+    },
+    trigger: null,
+  });
 };
 
 export default function IndexScreen() {
