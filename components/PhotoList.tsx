@@ -1,10 +1,11 @@
 import React from "react";
 import { View, Image, StyleSheet, FlatList, TouchableOpacity, Text } from "react-native";
-import { Photo } from "@/types";
+import { MarkerImage } from "@/types";
 
+// Список фото для маркера: просмотр, удаление, предпросмотр
 interface Props {
-  photos: Photo[];
-  onDelete: (id: string) => void;
+  photos: MarkerImage[];
+  onDelete: (id: number) => void;
   onPreview?: (uri: string) => void;
 }
 
@@ -16,7 +17,7 @@ export default function PhotoList({ photos, onDelete, onPreview }: Props) {
     <FlatList
       data={photos}
       horizontal
-      keyExtractor={(item) => item.id}
+      keyExtractor={(item) => item.id.toString()}
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={{ paddingBottom: 12 }}
       renderItem={({ item }) => (

@@ -1,12 +1,13 @@
 import React from "react";
 import MapView, { Marker } from "react-native-maps";
 import { StyleSheet, View, Text, Platform } from "react-native";
-import { PointOfInterest } from "@/types";
+import { Marker as MapMarker } from "@/types";
 
+// Обёртка над MapView для отображения маркеров с кастомизацией
 interface Props {
-  points: PointOfInterest[];
+  points: MapMarker[];
   onLongPress: (lat: number, lng: number) => void;
-  onPointPress: (id: string) => void;
+  onPointPress: (id: number) => void;
 }
 
 export default function MapViewWrapper({ points, onLongPress, onPointPress }: Props) {

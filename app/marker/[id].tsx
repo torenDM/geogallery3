@@ -1,56 +1,54 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Button, Modal, Image, TouchableWithoutFeedback, ScrollView, Platform } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { usePoints } from "@/contexts/PointsContext";
+import { useDatabase } from "@/contexts/DatabaseContext";
 import PhotoList from "@/components/PhotoList";
 import * as ImagePicker from "expo-image-picker";
-import uuid from "react-native-uuid";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Marker, MarkerImage } from "@/types";
 
+// Экран подробностей маркера (фото, инфо)
 export default function MarkerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { points, updatePoint } = usePoints();
+  const { markers, addImage, getMarkerImages, deleteImage } = useDatabase();
   const insets = useSafeAreaInsets();
-  const point = points.find(p => p.id === id);
+  const marker = markers.find(p => p.id === Number(id));
 
   const [previewUri, setPreviewUri] = useState<string | null>(null);
+  const [images, setImages] = useState<MarkerImage[]>([]);
 
+  // Загрузка изображений маркера
+  useEffect(() => {
+    if (id) {
+      getMarkerImages(Number(id)).then(setImages);
+    }
+  }, [id]);
+
+  // Добавление фото к маркеру
   const handleAddPhoto = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: 'images',
-        allowsEditing: true,
-        quality: 1
+        quality: 1,
       });
 
       if (!result.canceled && result.assets?.length) {
-        const newPhoto = {
-          id: uuid.v4() as string,
-          uri: result.assets[0].uri,
-          addedAt: new Date(),
-        };
-        const updated = {
-          ...point!,
-          photos: [...point!.photos, newPhoto],
-        };
-        updatePoint(updated);
+        const img = await addImage(Number(id), result.assets[0].uri);
+        if (img) setImages(prev => [...prev, img]);
       }
     } catch (error) {
       alert("Не удалось выбрать изображение.");
     }
   };
 
-  const handleDeletePhoto = (photoId: string) => {
-    if (!point) return;
-    const updated = {
-      ...point,
-      photos: point.photos.filter((p) => p.id !== photoId),
-    };
-    updatePoint(updated);
+  // Удаление фото
+  const handleDeletePhoto = async (photoId: number) => {
+    await deleteImage(photoId);
+    setImages(prev => prev.filter((p) => p.id !== photoId));
   };
 
-  if (!point) {
+  if (!marker) {
     return (
       <View style={styles.center}>
         <Text>Точка не найдена</Text>
@@ -62,14 +60,14 @@ export default function MarkerScreen() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-        <Text style={styles.title}>{point.label}</Text>
+        <Text style={styles.title}>{marker.label}</Text>
         <Text style={styles.coords}>
-          Широта: {point.latitude.toFixed(6)}{"\n"}
-          Долгота: {point.longitude.toFixed(6)}
+          Широта: {marker.latitude.toFixed(6)}{"\n"}
+          Долгота: {marker.longitude.toFixed(6)}
         </Text>
         <PhotoList
-          photos={point.photos}
-          onDelete={handleDeletePhoto}
+          photos={images}
+          onDelete={photoId => handleDeletePhoto(photoId)}
           onPreview={setPreviewUri}
         />
         <View style={styles.actionButtons}>
