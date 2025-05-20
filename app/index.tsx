@@ -2,12 +2,19 @@ import React, { useState } from "react";
 import { View, Modal, TextInput, Button, Platform, Text, StyleSheet, TouchableOpacity } from "react-native";
 import MapViewWrapper from "@/components/MapViewWrapper";
 import { useDatabase } from "@/contexts/DatabaseContext";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 
 const COLORS = ["#1976d2", "#388e3c", "#d32f2f", "#fbc02d", "#7b1fa2"];
 const DEFAULT_ANDROID_COLOR = "#1976d2";
 
-// Главный экран: карта с маркерами, добавление маркера
+// --- Новый: дефолтные значения для карты
+const DEFAULT_REGION = {
+  latitude: 58.007468,
+  longitude: 56.187654,
+  latitudeDelta: 0.01,
+  longitudeDelta: 0.01,
+};
+
 export default function IndexScreen() {
   const { markers, addMarker, reloadMarkers } = useDatabase();
   const [modalVisible, setModalVisible] = useState(false);
@@ -15,15 +22,50 @@ export default function IndexScreen() {
   const [selectedColor, setSelectedColor] = useState(COLORS[0]);
   const [newCoords, setNewCoords] = useState<{ lat: number; lng: number } | null>(null);
 
+  // --- Новый: хранить актуальный регион (центр и зум карты)
+  const [mapRegion, setMapRegion] = useState(DEFAULT_REGION);
+
   const router = useRouter();
 
-  // Обработка долгого нажатия по карте (добавление новой точки)
+  // --- Новый: читаем параметры из роутера (если переход был с сохранённой позиции)
+  const params = useLocalSearchParams<{
+    lat?: string; lng?: string; latDelta?: string; lngDelta?: string;
+  }>();
+
+  // --- Новый: определяем, с какого региона стартовать (params из роутера или дефолт)
+  const initialRegion = {
+    latitude: params.lat ? parseFloat(params.lat) : mapRegion.latitude,
+    longitude: params.lng ? parseFloat(params.lng) : mapRegion.longitude,
+    latitudeDelta: params.latDelta ? parseFloat(params.latDelta) : mapRegion.latitudeDelta,
+    longitudeDelta: params.lngDelta ? parseFloat(params.lngDelta) : mapRegion.longitudeDelta,
+  };
+
+  // --- При каждом изменении initialRegion (например, после возврата), обновлять mapRegion
+  React.useEffect(() => {
+    setMapRegion(initialRegion);
+    // eslint-disable-next-line
+  }, [params.lat, params.lng, params.latDelta, params.lngDelta]);
+
+  // Долгое нажатие — добавить маркер
   const handleLongPress = (lat: number, lng: number) => {
     setNewCoords({ lat, lng });
     setModalVisible(true);
   };
 
-  // Сохранение нового маркера в БД
+  // --- Новый: при клике на маркер, передавать регион в параметры
+  const handlePointPress = (id: number) => {
+    router.push({
+      pathname: `/marker/${id}`,
+      params: {
+        lat: mapRegion.latitude.toString(),
+        lng: mapRegion.longitude.toString(),
+        latDelta: mapRegion.latitudeDelta.toString(),
+        lngDelta: mapRegion.longitudeDelta.toString(),
+      }
+    });
+  };
+
+  // Сохраняем новый маркер
   const handleAddPoint = async () => {
     if (newCoords) {
       const labelValue = inputLabel.trim() === "" ? "Без названия" : inputLabel;
@@ -46,10 +88,12 @@ export default function IndexScreen() {
       <MapViewWrapper
         points={markers}
         onLongPress={handleLongPress}
-        onPointPress={id => router.push(`/marker/${id}`)}
+        onPointPress={handlePointPress}
+        initialRegion={initialRegion}
+        // --- Новый: callback обновления mapRegion (onRegionChange)
+        onRegionChange={region => setMapRegion(region)}
       />
 
-      {/* Модальное окно для добавления нового маркера */}
       <Modal visible={modalVisible} transparent animationType="slide">
         <View style={modalStyles.overlay}>
           <View style={modalStyles.container}>
@@ -61,7 +105,6 @@ export default function IndexScreen() {
               value={inputLabel}
               onChangeText={setInputLabel}
             />
-            {/* Цвета только для iOS */}
             {Platform.OS === "ios" && (
               <View style={modalStyles.colorsRow}>
                 {COLORS.map(color => (

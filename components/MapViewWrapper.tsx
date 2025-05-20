@@ -1,26 +1,27 @@
-import React from "react";
-import MapView, { Marker } from "react-native-maps";
+import React, { useRef } from "react";
+import MapView, { Marker, Region } from "react-native-maps";
 import { StyleSheet, View, Text, Platform } from "react-native";
 import { Marker as MapMarker } from "@/types";
 
-// Обёртка над MapView для отображения маркеров с кастомизацией
+// Пропсы: добавлен initialRegion и onRegionChange (новое!)
 interface Props {
   points: MapMarker[];
   onLongPress: (lat: number, lng: number) => void;
   onPointPress: (id: number) => void;
+  initialRegion: Region;
+  onRegionChange?: (region: Region) => void;
 }
 
-export default function MapViewWrapper({ points, onLongPress, onPointPress }: Props) {
-  // Карта и маркеры
+export default function MapViewWrapper({ points, onLongPress, onPointPress, initialRegion, onRegionChange }: Props) {
+  const mapRef = useRef<MapView>(null);
+
   return (
     <MapView
+      ref={mapRef}
       style={styles.map}
-      initialRegion={{
-        latitude: 58.007468,
-        longitude: 56.187654,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      }}
+      initialRegion={initialRegion}
+      // --- Новый: слушаем изменения региона (передаём в родителя)
+      onRegionChangeComplete={region => onRegionChange?.(region)}
       onLongPress={e => {
         onLongPress(
           e.nativeEvent.coordinate.latitude,
@@ -38,7 +39,6 @@ export default function MapViewWrapper({ points, onLongPress, onPointPress }: Pr
           onPress={() => onPointPress(point.id)}
           {...(Platform.OS === "android" ? { image: require("@/assets/marker.png") } : {})}
         >
-          {/* Кастомизация маркера на iOS */}
           {Platform.OS === "ios" ? (
             <View
               key={`${point.id}-${point.label}`}

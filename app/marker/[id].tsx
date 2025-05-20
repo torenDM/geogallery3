@@ -7,9 +7,17 @@ import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Marker, MarkerImage } from "@/types";
 
+// --- Читаем регион из params, чтобы потом передать обратно
+type RegionParams = {
+  lat?: string;
+  lng?: string;
+  latDelta?: string;
+  lngDelta?: string;
+};
+
 // Экран подробностей маркера (фото, инфо, удаление)
 export default function MarkerScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, lat, lng, latDelta, lngDelta } = useLocalSearchParams<RegionParams & { id: string }>();
   const router = useRouter();
   const { markers, addImage, getMarkerImages, deleteImage, deleteMarker } = useDatabase();
   const insets = useSafeAreaInsets();
@@ -48,7 +56,7 @@ export default function MarkerScreen() {
     setImages(prev => prev.filter((p) => p.id !== photoId));
   };
 
-  // --- Новое: обработчик удаления маркера ---
+  // --- Обработчик удаления маркера с передачей позиции карты
   const handleDeleteMarker = async () => {
     Alert.alert(
       "Удалить точку",
@@ -59,15 +67,23 @@ export default function MarkerScreen() {
           text: "Удалить",
           style: "destructive",
           onPress: async () => {
-            await deleteMarker(marker.id); // Удаляет маркер и все связанные фото через CASCADE
-            router.replace("/"); // Возвращаемся на карту
+            await deleteMarker(marker.id);
+            // --- Переходим обратно на карту, ПЕРЕДАЁМ сохранённый регион
+            router.replace({
+              pathname: "/",
+              params: {
+                lat: lat ?? "",
+                lng: lng ?? "",
+                latDelta: latDelta ?? "",
+                lngDelta: lngDelta ?? ""
+              }
+            });
           }
         }
       ]
     );
   };
 
-  // Если маркер не найден (например, был удалён)
   if (!marker) {
     return (
       <View style={styles.center}>
@@ -90,17 +106,30 @@ export default function MarkerScreen() {
           onDelete={photoId => handleDeletePhoto(photoId)}
           onPreview={setPreviewUri}
         />
-        {/* Кнопки действия */}
         <View style={styles.actionButtons}>
           <Button title="Добавить изображение" onPress={handleAddPhoto} />
           <View style={{ height: 8 }} />
-          {/* Новая кнопка удаления маркера */}
           <Button title="Удалить точку" color="#d32f2f" onPress={handleDeleteMarker} />
         </View>
       </ScrollView>
       <View style={{ height: 8 }} />
       <View style={{ paddingBottom: insets.bottom + 8, backgroundColor: "transparent" }}>
-        <Button title="Назад к карте" onPress={() => router.back()} color="gray" />
+        {/* --- При возврате к карте, тоже передаём сохранённый регион --- */}
+        <Button
+          title="Назад к карте"
+          onPress={() =>
+            router.replace({
+              pathname: "/",
+              params: {
+                lat: lat ?? "",
+                lng: lng ?? "",
+                latDelta: latDelta ?? "",
+                lngDelta: lngDelta ?? ""
+              }
+            })
+          }
+          color="gray"
+        />
       </View>
 
       {/* Предпросмотр изображения */}
