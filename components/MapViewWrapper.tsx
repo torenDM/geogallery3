@@ -1,18 +1,19 @@
 import React, { useRef } from "react";
-import MapView, { Marker, Region } from "react-native-maps";
+import MapView, { Marker, Region, Circle } from "react-native-maps";
 import { StyleSheet, View, Text, Platform } from "react-native";
-import { Marker as MapMarker } from "@/types";
+import { Marker as MapMarker, UserLocation } from "@/types";
 
-// Пропсы: добавлен initialRegion и onRegionChange (новое!)
+// --- добавлен userLocation
 interface Props {
   points: MapMarker[];
   onLongPress: (lat: number, lng: number) => void;
   onPointPress: (id: number) => void;
   initialRegion: Region;
   onRegionChange?: (region: Region) => void;
+  userLocation?: UserLocation | null; // новый проп
 }
 
-export default function MapViewWrapper({ points, onLongPress, onPointPress, initialRegion, onRegionChange }: Props) {
+export default function MapViewWrapper({ points, onLongPress, onPointPress, initialRegion, onRegionChange, userLocation }: Props) {
   const mapRef = useRef<MapView>(null);
 
   return (
@@ -20,7 +21,6 @@ export default function MapViewWrapper({ points, onLongPress, onPointPress, init
       ref={mapRef}
       style={styles.map}
       initialRegion={initialRegion}
-      // --- Новый: слушаем изменения региона (передаём в родителя)
       onRegionChangeComplete={region => onRegionChange?.(region)}
       onLongPress={e => {
         onLongPress(
@@ -28,6 +28,7 @@ export default function MapViewWrapper({ points, onLongPress, onPointPress, init
           e.nativeEvent.coordinate.longitude
         );
       }}
+      showsUserLocation={false} // Своё отображение ниже
     >
       {points.map((point) => (
         <Marker
@@ -72,6 +73,29 @@ export default function MapViewWrapper({ points, onLongPress, onPointPress, init
           ) : null}
         </Marker>
       ))}
+      {/* --- Новый: отображение текущей позиции пользователя --- */}
+      {userLocation && (
+        <>
+          <Marker
+            coordinate={{
+              latitude: userLocation.latitude,
+              longitude: userLocation.longitude,
+            }}
+            pinColor="blue"
+            title="Вы здесь"
+          />
+          {/* Можно добавить круг радиуса для наглядности точности */}
+          <Circle
+            center={{
+              latitude: userLocation.latitude,
+              longitude: userLocation.longitude,
+            }}
+            radius={userLocation.accuracy || 30}
+            strokeColor="rgba(30, 144, 255, 0.4)"
+            fillColor="rgba(30, 144, 255, 0.15)"
+          />
+        </>
+      )}
     </MapView>
   );
 }

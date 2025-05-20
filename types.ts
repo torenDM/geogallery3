@@ -22,3 +22,14 @@ export interface PointsContextType {
   setMarkers: React.Dispatch<React.SetStateAction<Marker[]>>;
   reloadMarkers: () => Promise<void>;
 }
+
+// Тип для текущей позиции пользователя
+export interface UserLocation {
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
+  timestamp?: number;
+}
+
+// Пороговое расстояние для уведомления (метры)
+export const PROXIMITY_THRESHOLD = 40; // например, 40 м

@@ -1,13 +1,16 @@
-import React, { useState } from "react";
-import { View, Modal, TextInput, Button, Platform, Text, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useState, useEffect, useRef } from "react";
+import { View, Modal, TextInput, Button, Platform, Text, StyleSheet, TouchableOpacity, AppState } from "react-native";
 import MapViewWrapper from "@/components/MapViewWrapper";
 import { useDatabase } from "@/contexts/DatabaseContext";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { getCurrentLocation, watchPosition } from "@/services/location";
+import { notificationManager } from "@/services/notifications";
+import { calculateDistance } from "@/utils/geo"; // функцию дадим ниже
+import { PROXIMITY_THRESHOLD, UserLocation } from "@/types";
 
 const COLORS = ["#1976d2", "#388e3c", "#d32f2f", "#fbc02d", "#7b1fa2"];
 const DEFAULT_ANDROID_COLOR = "#1976d2";
 
-// --- Новый: дефолтные значения для карты
 const DEFAULT_REGION = {
   latitude: 58.007468,
   longitude: 56.187654,
@@ -21,18 +24,16 @@ export default function IndexScreen() {
   const [inputLabel, setInputLabel] = useState("");
   const [selectedColor, setSelectedColor] = useState(COLORS[0]);
   const [newCoords, setNewCoords] = useState<{ lat: number; lng: number } | null>(null);
-
-  // --- Новый: хранить актуальный регион (центр и зум карты)
   const [mapRegion, setMapRegion] = useState(DEFAULT_REGION);
 
-  const router = useRouter();
+  // --- Геолокация
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const locationSub = useRef<any>(null);
 
-  // --- Новый: читаем параметры из роутера (если переход был с сохранённой позиции)
+  // --- Чтение позиции из параметров роутера (для возврата после удаления)
   const params = useLocalSearchParams<{
     lat?: string; lng?: string; latDelta?: string; lngDelta?: string;
   }>();
-
-  // --- Новый: определяем, с какого региона стартовать (params из роутера или дефолт)
   const initialRegion = {
     latitude: params.lat ? parseFloat(params.lat) : mapRegion.latitude,
     longitude: params.lng ? parseFloat(params.lng) : mapRegion.longitude,
@@ -40,19 +41,14 @@ export default function IndexScreen() {
     longitudeDelta: params.lngDelta ? parseFloat(params.lngDelta) : mapRegion.longitudeDelta,
   };
 
-  // --- При каждом изменении initialRegion (например, после возврата), обновлять mapRegion
-  React.useEffect(() => {
+  useEffect(() => {
     setMapRegion(initialRegion);
     // eslint-disable-next-line
   }, [params.lat, params.lng, params.latDelta, params.lngDelta]);
 
-  // Долгое нажатие — добавить маркер
-  const handleLongPress = (lat: number, lng: number) => {
-    setNewCoords({ lat, lng });
-    setModalVisible(true);
-  };
+  const router = useRouter();
 
-  // --- Новый: при клике на маркер, передавать регион в параметры
+  // --- Переход на экран маркера с передачей региона
   const handlePointPress = (id: number) => {
     router.push({
       pathname: `/marker/${id}`,
@@ -65,7 +61,12 @@ export default function IndexScreen() {
     });
   };
 
-  // Сохраняем новый маркер
+  // --- Добавление маркера
+  const handleLongPress = (lat: number, lng: number) => {
+    setNewCoords({ lat, lng });
+    setModalVisible(true);
+  };
+
   const handleAddPoint = async () => {
     if (newCoords) {
       const labelValue = inputLabel.trim() === "" ? "Без названия" : inputLabel;
@@ -83,6 +84,56 @@ export default function IndexScreen() {
     }
   };
 
+  // --- Геолокация: следим за позицией пользователя
+  useEffect(() => {
+    let sub: any;
+    let isMounted = true;
+
+    async function subscribeLocation() {
+      await notificationManager.requestPermission();
+      sub = await watchPosition(location => {
+        if (!isMounted) return;
+        const { latitude, longitude, accuracy } = location.coords;
+        const timestamp = location.timestamp;
+        setUserLocation({ latitude, longitude, accuracy, timestamp });
+
+        // Проверяем расстояние до каждой точки и отправляем уведомления
+        markers.forEach(marker => {
+          const distance = calculateDistance(
+            latitude,
+            longitude,
+            marker.latitude,
+            marker.longitude
+          );
+          if (distance <= PROXIMITY_THRESHOLD) {
+            notificationManager.showNotification(marker);
+          } else {
+            notificationManager.removeNotification(marker.id);
+          }
+        });
+      });
+    }
+    subscribeLocation();
+
+    return () => {
+      isMounted = false;
+      if (sub) sub.remove();
+      notificationManager.clearAll();
+    };
+    // markers в зависимости чтобы реагировать на обновление точек
+    // eslint-disable-next-line
+  }, [markers.length]);
+
+  // Если приложение свернули/развернули — очищаем уведомления
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", state => {
+      if (state !== "active") notificationManager.clearAll();
+    });
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
   return (
     <View style={{ flex: 1 }}>
       <MapViewWrapper
@@ -90,8 +141,8 @@ export default function IndexScreen() {
         onLongPress={handleLongPress}
         onPointPress={handlePointPress}
         initialRegion={initialRegion}
-        // --- Новый: callback обновления mapRegion (onRegionChange)
         onRegionChange={region => setMapRegion(region)}
+        userLocation={userLocation}
       />
 
       <Modal visible={modalVisible} transparent animationType="slide">
