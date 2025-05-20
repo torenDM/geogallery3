@@ -11,6 +11,7 @@ interface Props {
 }
 
 export default function MapViewWrapper({ points, onLongPress, onPointPress }: Props) {
+  // Карта и маркеры
   return (
     <MapView
       style={styles.map}
@@ -37,6 +38,7 @@ export default function MapViewWrapper({ points, onLongPress, onPointPress }: Pr
           onPress={() => onPointPress(point.id)}
           {...(Platform.OS === "android" ? { image: require("@/assets/marker.png") } : {})}
         >
+          {/* Кастомизация маркера на iOS */}
           {Platform.OS === "ios" ? (
             <View
               key={`${point.id}-${point.label}`}

@@ -10,9 +10,11 @@ interface Props {
 }
 
 export default function PhotoList({ photos, onDelete, onPreview }: Props) {
+  // Если фотографий нет — вывести сообщение
   if (photos.length === 0) {
     return <Text style={{ textAlign: "center", color: "#888", marginBottom: 16 }}>Нет изображений</Text>;
   }
+  // Фото выводятся горизонтальным FlatList
   return (
     <FlatList
       data={photos}

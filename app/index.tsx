@@ -23,7 +23,7 @@ export default function IndexScreen() {
     setModalVisible(true);
   };
 
-  // Сохранение нового маркера
+  // Сохранение нового маркера в БД
   const handleAddPoint = async () => {
     if (newCoords) {
       const labelValue = inputLabel.trim() === "" ? "Без названия" : inputLabel;
@@ -49,6 +49,7 @@ export default function IndexScreen() {
         onPointPress={id => router.push(`/marker/${id}`)}
       />
 
+      {/* Модальное окно для добавления нового маркера */}
       <Modal visible={modalVisible} transparent animationType="slide">
         <View style={modalStyles.overlay}>
           <View style={modalStyles.container}>
@@ -60,6 +61,7 @@ export default function IndexScreen() {
               value={inputLabel}
               onChangeText={setInputLabel}
             />
+            {/* Цвета только для iOS */}
             {Platform.OS === "ios" && (
               <View style={modalStyles.colorsRow}>
                 {COLORS.map(color => (

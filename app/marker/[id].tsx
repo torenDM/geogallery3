@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Button, Modal, Image, TouchableWithoutFeedback, ScrollView, Platform } from "react-native";
+import { View, Text, StyleSheet, Button, Modal, Image, TouchableWithoutFeedback, ScrollView, Platform, Alert } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useDatabase } from "@/contexts/DatabaseContext";
 import PhotoList from "@/components/PhotoList";
@@ -7,18 +7,18 @@ import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Marker, MarkerImage } from "@/types";
 
-// Экран подробностей маркера (фото, инфо)
+// Экран подробностей маркера (фото, инфо, удаление)
 export default function MarkerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { markers, addImage, getMarkerImages, deleteImage } = useDatabase();
+  const { markers, addImage, getMarkerImages, deleteImage, deleteMarker } = useDatabase();
   const insets = useSafeAreaInsets();
   const marker = markers.find(p => p.id === Number(id));
 
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [images, setImages] = useState<MarkerImage[]>([]);
 
-  // Загрузка изображений маркера
+  // Загрузка изображений маркера при открытии экрана
   useEffect(() => {
     if (id) {
       getMarkerImages(Number(id)).then(setImages);
@@ -48,6 +48,26 @@ export default function MarkerScreen() {
     setImages(prev => prev.filter((p) => p.id !== photoId));
   };
 
+  // --- Новое: обработчик удаления маркера ---
+  const handleDeleteMarker = async () => {
+    Alert.alert(
+      "Удалить точку",
+      "Удалить этот маркер и все связанные с ним изображения?",
+      [
+        { text: "Отмена", style: "cancel" },
+        {
+          text: "Удалить",
+          style: "destructive",
+          onPress: async () => {
+            await deleteMarker(marker.id); // Удаляет маркер и все связанные фото через CASCADE
+            router.replace("/"); // Возвращаемся на карту
+          }
+        }
+      ]
+    );
+  };
+
+  // Если маркер не найден (например, был удалён)
   if (!marker) {
     return (
       <View style={styles.center}>
@@ -70,8 +90,12 @@ export default function MarkerScreen() {
           onDelete={photoId => handleDeletePhoto(photoId)}
           onPreview={setPreviewUri}
         />
+        {/* Кнопки действия */}
         <View style={styles.actionButtons}>
           <Button title="Добавить изображение" onPress={handleAddPhoto} />
+          <View style={{ height: 8 }} />
+          {/* Новая кнопка удаления маркера */}
+          <Button title="Удалить точку" color="#d32f2f" onPress={handleDeleteMarker} />
         </View>
       </ScrollView>
       <View style={{ height: 8 }} />
