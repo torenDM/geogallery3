@@ -35,7 +35,14 @@ export default function MarkerScreen() {
   // Загрузка изображений маркера при открытии экрана
   useEffect(() => {
     if (id) {
-      getMarkerImages(Number(id)).then(setImages);
+      getMarkerImages(Number(id))
+        .then(setImages)
+        .catch(() => {
+          Alert.alert(
+            "Ошибка загрузки",
+            "Не удалось загрузить изображения для этой точки."
+          );
+        });
     }
   }, [id]);
 
@@ -50,16 +57,21 @@ export default function MarkerScreen() {
       if (!result.canceled && result.assets?.length) {
         const img = await addImage(Number(id), result.assets[0].uri);
         if (img) setImages(prev => [...prev, img]);
+        else throw new Error();
       }
     } catch (error) {
-      alert("Не удалось выбрать изображение.");
+      Alert.alert("Ошибка", "Не удалось выбрать или добавить изображение. Проверьте разрешения.");
     }
   };
 
   // Удаление фото
   const handleDeletePhoto = async (photoId: number) => {
-    await deleteImage(photoId);
-    setImages(prev => prev.filter((p) => p.id !== photoId));
+    try {
+      await deleteImage(photoId);
+      setImages(prev => prev.filter((p) => p.id !== photoId));
+    } catch (error) {
+      Alert.alert("Ошибка", "Не удалось удалить изображение.");
+    }
   };
 
   // --- Обработчик удаления маркера с передачей позиции карты
@@ -73,17 +85,20 @@ export default function MarkerScreen() {
           text: "Удалить",
           style: "destructive",
           onPress: async () => {
-            await deleteMarker(marker.id);
-            // --- Переходим обратно на карту, ПЕРЕДАЁМ сохранённый регион
-            router.replace({
-              pathname: "/",
-              params: {
-                lat: lat ?? "",
-                lng: lng ?? "",
-                latDelta: latDelta ?? "",
-                lngDelta: lngDelta ?? ""
-              }
-            });
+            try {
+              await deleteMarker(marker.id);
+              router.replace({
+                pathname: "/",
+                params: {
+                  lat: lat ?? "",
+                  lng: lng ?? "",
+                  latDelta: latDelta ?? "",
+                  lngDelta: lngDelta ?? ""
+                }
+              });
+            } catch (error) {
+              Alert.alert("Ошибка", "Не удалось удалить маркер. Попробуйте еще раз.");
+            }
           }
         }
       ]
@@ -92,13 +107,28 @@ export default function MarkerScreen() {
 
   // Кнопка для отправки тестового уведомления
   const handleTestNotification = async () => {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: "Тестовое уведомление",
-        body: marker?.label ? `Проверка для точки: ${marker.label}` : "Это проверка уведомлений в GeoGallery!",
-      },
-      trigger: null, // отправить сразу
-    });
+    try {
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status !== 'granted') {
+        const request = await Notifications.requestPermissionsAsync();
+        if (request.status !== 'granted') {
+          Alert.alert(
+            "Уведомления отключены",
+            "Не удалось отправить уведомление. Проверьте настройки уведомлений на устройстве."
+          );
+          return;
+        }
+      }
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Тестовое уведомление",
+          body: marker?.label ? `Проверка для точки: ${marker.label}` : "Это проверка уведомлений в GeoGallery!",
+        },
+        trigger: null, // отправить сразу
+      });
+    } catch (error) {
+      Alert.alert("Ошибка", "Не удалось отправить уведомление.");
+    }
   };
 
   // Если маркер не найден (например, был удалён)
