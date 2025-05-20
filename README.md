@@ -92,16 +92,16 @@
   - В Expo Go уведомления не поддерживаются с SDK 53+.
   - Для проверки используйте development build:
   - Установите EAS CLI:
-  
-    ```bash
-   npm install -g eas-cli
-   ```
+
+     ```bash
+     npm install -g eas-cli
+     ```
 
   - Соберите dev build:
 
-   ```bash
-   eas build --profile development --platform android
-   ```
+     ```bash
+     eas build --profile development --platform android
+     ```
   
   - Установите APK на устройство, откройте проект — уведомления будут работать так же, как на iOS.
 - **Тест уведомлений вручную:**
